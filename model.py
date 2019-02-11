@@ -2,9 +2,10 @@ import tensorflow as tf
 import numpy as np
 from util import placeholder, normalize, pipe, profile
 from tqdm import tqdm
+import os
 
 class SOM(object):
-    def __init__(self, trial, data_path, x, y, num_steps, learning_rate=0.5, norm=True, radius=None, tensorboard=True):
+    def __init__(self, trial, data_path, x, y, num_steps, learning_rate=0.5, norm=False, radius=None, tensorboard=True, gpu=None):
         '''
               trial: string, name of the trial
                data: tensorflow dataset iterator
@@ -14,6 +15,7 @@ class SOM(object):
                norm: bool, if True then data will be normalized
              radius: int, if None use default radius max(x,y)/2
         tensorboard: bool, if True, logs the graph and runs a performance test
+                gpu: int, picks gpu from cluster by number
         '''
 
         self.trial = trial
@@ -24,17 +26,22 @@ class SOM(object):
         self.learning_rate = learning_rate
         self.radius = radius
         self.norm = norm
+        self.tensorboard = tensorboard
+        self.gpu = gpu
 
+        if gpu != None:
+            ############# PICK GPU ###################
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
 
         with tf.variable_scope("input"):
             with tf.variable_scope("data"):
-                data = np.load(data_path)
+                self.data = np.load(data_path)
                 if norm is True:
-                    data = normalize(data)
-                self.feat_nr = len(data[0])
-                self.nr_inst = len(data)
+                    self.data = normalize(self.data)
+                self.feat_nr = len(self.data[0])
+                self.nr_inst = len(self.data)
             with tf.variable_scope("pipeline"):
-                pipeline = pipe(data, prefetch=4)
+                pipeline = pipe(self.data, prefetch=10)
 
             inpt = placeholder(tf.float32, [self.feat_nr], pipeline, "inpt")
 
@@ -43,7 +50,7 @@ class SOM(object):
                                        initializer=tf.random_normal_initializer)
 
         with tf.variable_scope("locations"):
-        locations = tf.constant(np.array(
+            locations = tf.constant(np.array(
             list([np.array([i, j]) for i in range(self.x) for j in range(self.y)])))
 
         if radius == None:
@@ -65,12 +72,17 @@ class SOM(object):
             # calculate Best Matching Unit (euclidean distances)
             distances = tf.sqrt(tf.reduce_sum((self.weights - inpt)**2, 1))
             bmu = tf.argmin(distances, 0)
+            #bmu = tf.reduce_min(distances)
+            #if len(bmu.shape) > 1:
+            #    bmu = bmu[0]
 
         with tf.variable_scope("bmu_loc"):
             # get the location of the bmu
-            mask = tf.pad(tf.reshape(bmu, [1]), np.array([[0, 1]]))
+            mask = tf.pad(tf.reshape(bmu, [1]), tf.constant(np.array([[0, 1]])))
             size = tf.cast(tf.constant(np.array([1, 2])), dtype=tf.int64)
             bmu_loc = tf.reshape(tf.slice(locations, mask, size), [2])
+            #mask = tf.equal(distances, bmu)
+            #bmu_loc = tf.boolean_mask(locations, mask)
 
 
         with tf.variable_scope("neighborhood"):
@@ -91,8 +103,8 @@ class SOM(object):
         self.sess = tf.InteractiveSession()
         self.sess.run(tf.global_variables_initializer())
 
-        if self.tensorboard = True:
-            wrtr = tf.summary.FileWriter("./data/"+trial)
+        if self.tensorboard is True:
+            wrtr = tf.summary.FileWriter(os.path.expanduser("~/cache/tensorboard-logdir/jan/"+trial))
             wrtr.add_graph(self.sess.graph)
             profile(self.sess, wrtr, new_weights, feed_dict= None, prerun=3, tag='flow')
             wrtr.flush()

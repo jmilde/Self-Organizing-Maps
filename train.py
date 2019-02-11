@@ -13,13 +13,14 @@ from model import SOM
 ##################
 # set parameters #
 ##################
+trial = "test"
 data_path = "./data/instances.npy"
 num_steps = 100
 x = 5
 y = 5
-
+gpu=1
 #get the model
-som = SOM(data_path, x, y, num_steps)
+som = SOM(trial, data_path, x, y, num_steps, gpu=gpu)
 
 #train the model
 som.train()

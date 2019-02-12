@@ -1,47 +1,42 @@
 import tensorflow as tf
 import numpy as np
 from model import SOM
-
-# Toyset
-#feat_nr = 3
-#num_iter = 100
-#data = normalize(np.random.randint(0, 255, (100,3)))
-#np.save("./data/test.npy", data)
-#data_path = "./data/test.npy"
-
-
+from util import analyze
 ##################
 # set parameters #
 ##################
-trial = "test"
+
+trial = "100x100"
 data_path = "./data/instances.npy"
+#log_path = "~/cache/tensorboard-logdir/jan"
+log_path = "./data/"
 num_steps = 100
-x = 5
-y = 5
-gpu=1
+x = 50
+y = 50
+gpu=None
 #get the model
-som = SOM(trial, data_path, x, y, num_steps, gpu=gpu)
+som = SOM(trial, x, y, num_steps, data_path, log_path, gpu=gpu, norm=True,
+          learning_rate=0.1)
 
 #train the model
 som.train()
 
 # get the trained map
-net = som.get_weights()
+#net = som.get_weights()
 
+### save/load weights
+som.save_weights()
+#som.load_weights("./data/test.npy")
 
-#from matplotlib import pyplot as plt
-#from matplotlib import patches as patches
-#fig = plt.figure()
-# setup axes
-#ax = fig.add_subplot(111, aspect='equal')
-#ax.set_xlim((0, net.shape[0]+1))
-#ax.set_ylim((0, net.shape[1]+1))
-#ax.set_title('Self-Organising Map after %d iterations' % num_iter)
+# get the location / cluster of the data
+data_map, clstr_map = som.map_data()
 
-# plot the rectangles
-#for x in range(1, net.shape[0] + 1):
-#    for y in range(1, net.shape[1] + 1):
-#        ax.add_patch(patches.Rectangle((x-0.5, y-0.5), 1, 1,
-#                     facecolor=net[x-1,y-1,:],
-#                     edgecolor='none'))
-#plt.show()
+########################################################
+###########
+# ANALYZE #
+###########
+
+idxs = np.load("./data/idxs.npy")
+code_lbl = np.load("./data/code_lbl.npy")
+
+pred_counts, pred_acc, best_pred = analyze(clstr_map, code_lbl, 0.6, 2)

@@ -53,7 +53,9 @@ class SOM(object):
 
         # create weight matrix
         self.weights = tf.get_variable("weights", shape=[self.x*self.y, self.feat_nr],
-                                       initializer=tf.random_normal_initializer)
+                                       initializer=tf.random_uniform_initializer)
+
+                                       #initializer=tf.random_normal_initializer)
 
         with tf.variable_scope("locations"):
             self.locations = tf.constant(np.array(list([np.array([i, j]) for i in range(self.x) for j in range(self.y)])))
@@ -133,7 +135,12 @@ class SOM(object):
         print("weights were saved under:", path)
 
     def load_weights(self, path):
-        self.sess.run(self.weights.assign(np.load(path)))
+        try:
+            self.sess.run(self.weights.assign(np.load(path)))
+        except ValueError:
+            data = np.load(path)
+            shape = data.shape
+            self.sess.run(self.weights.assign(np.reshape(data,(shape[0]*shape[1], shape[2]) )))
         print("weights were loaded")
 
     def map_data(self, data=None):
